@@ -1,0 +1,14 @@
+node_modules
+.next
+.git
+.pnpm-store
+data
+output
+tmp
+test-results
+coverage
+*.log
+*.pid
+*.tsbuildinfo
+.env.local
+本地预览.cmd

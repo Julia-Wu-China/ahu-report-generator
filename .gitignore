@@ -1,0 +1,14 @@
+node_modules/
+.next/
+.pnpm-store/
+data/*
+!data/.gitkeep
+output/
+test-results/
+coverage/
+tmp/
+*.log
+*.pid
+*.tsbuildinfo
+.env.local
+本地预览.cmd

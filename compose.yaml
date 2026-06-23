@@ -1,0 +1,12 @@
+services:
+  ahu-report:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      MEDIA_SECRET: ${MEDIA_SECRET:-please-change-this-long-random-secret}
+    volumes:
+      - ahu-report-data:/app/data
+    restart: unless-stopped
+volumes:
+  ahu-report-data:
