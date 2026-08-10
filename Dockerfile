@@ -17,6 +17,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends chromium fonts-
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
+COPY --from=builder /app/scripts ./scripts
 RUN mkdir -p /app/data && chown -R node:node /app
+USER node
 EXPOSE 3000
-CMD ["node", "server.js"]
+CMD ["sh", "-c", "node scripts/supabase-data-sync.mjs restore && node server.js"]

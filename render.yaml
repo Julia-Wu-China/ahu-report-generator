@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: ahu-report-generator
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATA_DIR
+        value: /app/data
+      - key: MEDIA_SECRET
+        sync: false
+      - key: SUPABASE_URL
+        value: https://stxgycljgqvsfhnbmcgb.supabase.co
+      - key: SUPABASE_BUCKET
+        value: ahu-report-generator
+      - key: SUPABASE_DATA_PREFIX
+        value: data
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false

@@ -1,6 +1,7 @@
 import { DatabaseSync } from "node:sqlite";
 import fs from "node:fs";
 import path from "node:path";
+import { scheduleDataSnapshotSync } from "./persistence";
 import { normalizeReportData, type ReportData, type ReportRecord, type ReportVersion } from "./types";
 
 const dataDir = path.resolve(process.env.DATA_DIR ?? "data");
@@ -34,6 +35,11 @@ db.exec(`
 `);
 try { db.exec("ALTER TABLE report_versions ADD COLUMN type TEXT NOT NULL DEFAULT 'pdf'"); } catch { /* column already exists */ }
 
+function persistDataSnapshot(reason: string) {
+  try { db.exec("PRAGMA wal_checkpoint(FULL);"); } catch {}
+  scheduleDataSnapshotSync(reason);
+}
+
 type ReportRow = { id: string; token_hash: string; report_number: string | null; data_json: string; created_at: string; updated_at: string };
 export function getReportRow(id: string) {
   return db.prepare("SELECT * FROM reports WHERE id = ?").get(id) as ReportRow | undefined;
@@ -45,15 +51,17 @@ export function createReport(id: string, tokenHash: string, data: ReportData) {
   const now = new Date().toISOString();
   db.prepare("INSERT INTO reports(id, token_hash, data_json, created_at, updated_at) VALUES(?,?,?,?,?)")
     .run(id, tokenHash, JSON.stringify(data), now, now);
+  persistDataSnapshot("create-report");
   return publicReport(getReportRow(id)!);
 }
 export function updateReport(id: string, data: ReportData) {
   data = normalizeReportData(data);
   db.prepare("UPDATE reports SET data_json = ?, updated_at = ? WHERE id = ?")
     .run(JSON.stringify(data), new Date().toISOString(), id);
+  persistDataSnapshot("update-report");
   return publicReport(getReportRow(id)!);
 }
-export function deleteReport(id: string) { db.prepare("DELETE FROM reports WHERE id = ?").run(id); }
+export function deleteReport(id: string) { db.prepare("DELETE FROM reports WHERE id = ?").run(id); persistDataSnapshot("delete-report"); }
 
 export function allocateReportNumber(id: string) {
   const existing = getReportRow(id)?.report_number;
@@ -67,6 +75,7 @@ export function allocateReportNumber(id: string) {
     const number = `AHU-${date}-${String(next).padStart(4, "0")}`;
     db.prepare("UPDATE reports SET report_number = ?, updated_at = ? WHERE id = ? AND report_number IS NULL").run(number, new Date().toISOString(), id);
     db.exec("COMMIT");
+    persistDataSnapshot("allocate-report-number");
     return getReportRow(id)!.report_number!;
   } catch (error) { db.exec("ROLLBACK"); throw error; }
 }
@@ -88,6 +97,7 @@ export function addVersion(id: string, version: number, reportNumber: string, pd
   const createdAt = new Date().toISOString();
   db.prepare("INSERT INTO report_versions(report_id,version,report_number,pdf_path,created_at,type) VALUES(?,?,?,?,?,?)")
     .run(id, version, reportNumber, pdfPath, createdAt, type);
+  persistDataSnapshot("add-version");
   const downloadUrl = type === "word" ? `/api/reports/${id}/versions/${version}/word` : `/api/reports/${id}/versions/${version}/pdf`;
   return { version, reportNumber, createdAt, downloadUrl, type } satisfies ReportVersion;
 }
@@ -106,6 +116,7 @@ export function deleteVersion(id: string, version: number) {
   const row = getVersion(id, version);
   if (row?.pdf_path) { try { fs.unlinkSync(row.pdf_path); } catch {} }
   db.prepare("DELETE FROM report_versions WHERE report_id=? AND version=?").run(id, version);
+  persistDataSnapshot("delete-version");
 }
 export const storageRoot = path.join(dataDir, "storage");
 fs.mkdirSync(storageRoot, { recursive: true });
@@ -116,7 +127,9 @@ export function getClientHistory(clientId: string): ClientHistoryItem[] {
 }
 export function upsertClientHistory(clientId: string, reportId: string, token: string, name: string, reportNumber: string | null, testDate: string | null, updatedAt: string) {
   db.prepare("INSERT INTO client_history(client_id,report_id,token,name,report_number,test_date,updated_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT(client_id,report_id) DO UPDATE SET token=excluded.token,name=excluded.name,report_number=excluded.report_number,test_date=excluded.test_date,updated_at=excluded.updated_at").run(clientId, reportId, token, name, reportNumber, testDate, updatedAt);
+  persistDataSnapshot("client-history");
 }
 export function deleteClientHistory(clientId: string, reportId: string) {
   db.prepare("DELETE FROM client_history WHERE client_id=? AND report_id=?").run(clientId, reportId);
+  persistDataSnapshot("delete-client-history");
 }

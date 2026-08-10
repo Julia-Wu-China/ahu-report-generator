@@ -3,12 +3,11 @@ node_modules/
 .pnpm-store/
 data/*
 !data/.gitkeep
-output/
 test-results/
 coverage/
 tmp/
+output/
 *.log
 *.pid
-*.tsbuildinfo
 .env.local
-本地预览.cmd
+tsconfig.tsbuildinfo
