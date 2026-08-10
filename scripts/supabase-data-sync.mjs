@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const mode = process.argv[2] || "restore";
+const onlyArg = (process.argv.find((a) => a.startsWith("--only=")) || "").split("=")[1] || "all";
 const dataDir = path.resolve(process.env.DATA_DIR || "data");
 const supabaseUrl = (process.env.SUPABASE_URL || "").replace(/\/+$/, "");
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
@@ -10,6 +11,16 @@ const supabasePrefix = (process.env.SUPABASE_DATA_PREFIX || "data").replace(/^\/
 
 function enabled() {
   return Boolean(supabaseUrl && supabaseKey && supabaseBucket && supabasePrefix);
+}
+
+function isDbFile(p) {
+  return p === "reports.sqlite" || p.startsWith("reports.sqlite");
+}
+
+function selectByFilter(files) {
+  if (onlyArg === "db") return files.filter((f) => isDbFile(f.path));
+  if (onlyArg === "media") return files.filter((f) => !isDbFile(f.path));
+  return files;
 }
 
 function objectUrl(relativePath) {
@@ -77,9 +88,10 @@ async function restore() {
   if (!manifestResponse.ok) throw new Error(`Supabase manifest restore failed: ${manifestResponse.status} ${await manifestResponse.text()}`);
   const manifest = await manifestResponse.json();
   const files = Array.isArray(manifest.files) ? manifest.files : [];
+  const selected = selectByFilter(files);
   fs.mkdirSync(dataDir, { recursive: true });
-  removeUnlistedFiles(files);
-  for (const file of files) {
+  if (onlyArg === "all") removeUnlistedFiles(files);
+  for (const file of selected) {
     if (!file?.path || file.path.includes("..")) throw new Error(`Unsafe manifest path: ${file?.path}`);
     const response = await fetch(objectUrl(file.path), { headers: headers() });
     if (!response.ok) throw new Error(`Supabase file restore failed for ${file.path}: ${response.status} ${await response.text()}`);
@@ -88,7 +100,7 @@ async function restore() {
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, Buffer.from(await response.arrayBuffer()));
   }
-  console.log(`Supabase data snapshot restored (${files.length} files).`);
+  console.log(`Supabase data snapshot restored (${selected.length}/${files.length} files, only=${onlyArg}).`);
 }
 
 async function backup() {

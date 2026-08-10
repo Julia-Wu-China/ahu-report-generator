@@ -21,4 +21,4 @@ COPY --from=builder /app/scripts ./scripts
 RUN mkdir -p /app/data && chown -R node:node /app
 USER node
 EXPOSE 3000
-CMD ["sh", "-c", "node scripts/supabase-data-sync.mjs restore && node server.js"]
+CMD ["sh", "-c", "node scripts/supabase-data-sync.mjs restore --only=db; node scripts/supabase-data-sync.mjs restore --only=media & node server.js"]
