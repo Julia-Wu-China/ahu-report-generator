@@ -11,6 +11,8 @@ services:
         value: production
       - key: DATA_DIR
         value: /app/data
+      - key: HOSTNAME
+        value: 0.0.0.0
       - key: MEDIA_SECRET
         sync: false
       - key: SUPABASE_URL

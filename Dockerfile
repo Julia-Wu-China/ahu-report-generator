@@ -12,7 +12,7 @@ RUN corepack enable && pnpm build
 
 FROM node:24-bookworm-slim AS runner
 WORKDIR /app
-ENV NODE_ENV=production DATA_DIR=/app/data CHROMIUM_PATH=/usr/bin/chromium
+ENV NODE_ENV=production DATA_DIR=/app/data CHROMIUM_PATH=/usr/bin/chromium HOSTNAME=0.0.0.0
 RUN apt-get update && apt-get install -y --no-install-recommends chromium fonts-noto-cjk ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
